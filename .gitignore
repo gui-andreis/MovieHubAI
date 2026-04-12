@@ -1,0 +1,33 @@
+# .gitignore
+
+# ambiente
+.env
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# testes
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ide
+.vscode/
+.idea/
+*.iml
+
+# os
+.DS_Store
+Thumbs.db
+
+# docker
+*.log

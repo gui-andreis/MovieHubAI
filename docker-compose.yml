@@ -1,0 +1,40 @@
+# docker-compose.yml (raiz do moviehub-ai)
+services:
+  moviehub-ai:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: moviehub-ai
+    restart: always
+    depends_on:
+      - moviehub-redis
+    ports:
+      - "8000:8000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - MOVIEHUB_BASE_URL=http://MovieHubApi-Api:8080
+      - REDIS_URL=redis://MovieHubApi-redis:6379
+      - TMDB_API_KEY=${TMDB_API_KEY}
+      - ENVIRONMENT=development
+    networks:
+      - moviehub-network
+      - default
+
+  moviehub-redis:
+    image: redis:7-alpine
+    container_name: moviehub-ai-redis
+    restart: always
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - default
+
+networks:
+  moviehub-network:
+    external: true
+    name: moviehub-network
