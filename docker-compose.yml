@@ -1,40 +1,32 @@
-# docker-compose.yml (raiz do moviehub-ai)
+# Desenvolvimento local: sobe a IA + um Redis.
+# A MovieHub API roda à parte (por padrão em http://localhost:5000 da sua máquina).
 services:
   moviehub-ai:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    build: .
     container_name: moviehub-ai
-    restart: always
-    depends_on:
-      - moviehub-redis
+    restart: unless-stopped
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - MOVIEHUB_BASE_URL=http://MovieHubApi-Api:8080
-      - REDIS_URL=redis://MovieHubApi-redis:6379
-      - TMDB_API_KEY=${TMDB_API_KEY}
-      - ENVIRONMENT=development
-    networks:
-      - moviehub-network
-      - default
+      MOVIEHUB_API_URL: ${MOVIEHUB_API_URL_DOCKER:-http://host.docker.internal:5000}
+      REDIS_URL: redis://moviehub-ai-redis:6379
+      PORT: "8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      moviehub-ai-redis:
+        condition: service_healthy
 
-  moviehub-redis:
+  moviehub-ai-redis:
     image: redis:7-alpine
     container_name: moviehub-ai-redis
-    restart: always
+    restart: unless-stopped
     ports:
       - "6380:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
-      timeout: 5s
+      timeout: 3s
       retries: 5
-    networks:
-      - default
-
-networks:
-  moviehub-network:
-    external: true
-    name: moviehub-network

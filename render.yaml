@@ -1,0 +1,23 @@
+# Blueprint do Render — https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: moviehub-ai
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-4.1-mini
+      - key: MOVIEHUB_API_URL
+        sync: false   # ex.: https://moviehub-api.onrender.com
+      - key: REDIS_URL
+        sync: false   # Upstash: rediss://default:<senha>@<host>:6379
+      - key: ALLOWED_ORIGINS
+        sync: false   # ex.: https://moviehub.vercel.app
+      - key: ENVIRONMENT
+        value: production
