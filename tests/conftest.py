@@ -1,81 +1,76 @@
-# tests/conftest.py
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from dotenv import load_dotenv
+import os
 
-load_dotenv()
+# Ambiente isolado: precisa vir antes de importar `app` (settings são cacheadas).
+os.environ.update(
+    {
+        "MOVIEHUB_API_URL": "http://api.test",
+        "OPENAI_API_KEY": "",
+        "REDIS_URL": "",
+        "ALLOWED_ORIGINS": "http://localhost:3000",
+        "RATE_LIMIT_PER_MINUTE": "100",
+        "ENVIRONMENT": "test",
+    }
+)
+
+from typing import Any  # noqa: E402
+
+import pytest  # noqa: E402
+from langchain_core.language_models.fake_chat_models import FakeMessagesListChatModel  # noqa: E402
+
+from app.agent.context import ChatContext  # noqa: E402
+from app.agent.tools import _common  # noqa: E402
+from app.services import chat as chat_service  # noqa: E402
+
+API = "http://api.test/api"
+TOKEN = "Bearer test-token"
+PROFILE = "11111111-1111-1111-1111-111111111111"
+
+
+class FakeToolModel(FakeMessagesListChatModel):
+    """Modelo fake que aceita bind_tools e devolve as respostas roteirizadas em ordem."""
+
+    def bind_tools(self, tools: Any, **kwargs: Any):  # noqa: D401
+        return self
+
+
+def env(data: Any, status: int = 200, message: str = "OK") -> dict[str, Any]:
+    return {"status": status, "message": message, "data": data}
+
+
+def card(id_: int, name: str, **extra: Any) -> dict[str, Any]:
+    base = {
+        "id": id_, "type": "movie", "name": name, "year": 2020, "posterUrl": f"https://img/{id_}.jpg",
+        "backdropUrl": None, "logoUrl": None, "ageRating": "14", "voteAverage": 7.5,
+        "runtimeMinutes": 110, "numberOfSeasons": None, "genres": ["Terror"],
+        "trailerKey": "abc", "overview": "Uma história.",
+    }
+    base.update(extra)
+    return base
+
+
+GENRES = [
+    {"id": 27, "name": "Terror", "slug": "terror", "titleCount": 10},
+    {"id": 35, "name": "Comédia", "slug": "comedia", "titleCount": 12},
+    {"id": 878, "name": "Ficção científica", "slug": "ficcao-cientifica", "titleCount": 8},
+]
+
+
+@pytest.fixture(autouse=True)
+def _clear_caches():
+    _common.clear_cache()
+    chat_service._PROFILE_CACHE.clear()
+    yield
 
 
 @pytest.fixture
-def mock_moviehub_client():
-    mock_instance = AsyncMock()
-    mock_instance.get_movies = AsyncMock(return_value={
-        "status": 200,
-        "message": "Filmes recuperados com sucesso.",
-        "data": {
-            "items": [
-                {
-                    "id": 1,
-                    "title": "Inception",
-                    "releaseYear": 2010,
-                    "rating": 9.0,
-                    "genres": ["Ficção Científica"]
-                }
-            ],
-            "totalCount": 1,
-        }
-    })
-    mock_instance.get_genres = AsyncMock(return_value={
-        "status": 200,
-        "data": [
-            {"id": 1, "name": "Ficção Científica"},
-            {"id": 2, "name": "Terror"},
-        ]
-    })
+def ctx() -> ChatContext:
+    return ChatContext(session_id="s1", authorization=TOKEN, profile_id=PROFILE, profile={"name": "Gui"})
 
-    # Mocka o context manager __aenter__ pra retornar o mock_instance
-    mock_cm = MagicMock()
-    mock_cm.__aenter__ = AsyncMock(return_value=mock_instance)
-    mock_cm.__aexit__ = AsyncMock(return_value=None)
 
-    with patch("tools.moviehub_tools.MovieHubClient", return_value=mock_cm):
-        yield mock_instance
-        
 @pytest.fixture
-def mock_redis():
-    with patch("memory.redis_memory.aioredis.from_url") as mock:
-        client = AsyncMock()
-        client.get = AsyncMock(return_value=None)
-        client.set = AsyncMock(return_value=True)
-        client.aclose = AsyncMock()
-        mock.return_value = client
-        yield client
-        
-@pytest.fixture
-def mock_authenticated_client():
-    mock_instance = AsyncMock()
-    mock_instance.get_my_favorites = AsyncMock(return_value={
-        "status": 200,
-        "data": [
-            {"id": 1, "title": "Inception", "releaseYear": 2010}
-        ]
-    })
-    mock_instance.add_favorite = AsyncMock(return_value={
-        "status": 200,
-        "message": "Filme adicionado aos favoritos."
-    })
-    mock_instance.get_my_reviews = AsyncMock(return_value={
-        "status": 200,
-        "data": []
-    })
-    mock_instance.create_review = AsyncMock(return_value={
-        "status": 201,
-        "message": "Review criada com sucesso."
-    })
+def anon_ctx() -> ChatContext:
+    return ChatContext(session_id="s1")
 
-    mock_cm = MagicMock()
-    mock_cm.__aenter__ = AsyncMock(return_value=mock_instance)
-    mock_cm.__aexit__ = AsyncMock(return_value=None)
 
-    with patch("tools.authenticated_tools.MovieHubClient", return_value=mock_cm):
-        yield mock_instance
+def cfg(c: ChatContext) -> dict[str, Any]:
+    return {"configurable": {"ctx": c}}
