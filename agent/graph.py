@@ -5,7 +5,6 @@ from agent.nodes.router import router_node
 from agent.nodes.tool_executor import tool_executor_node
 from agent.nodes.memory import memory_node
 from agent.nodes.responder import responder_node
-#Mapa do Cérebro do Agente, o fluxo de dados, a ordem das operações, quais nós existem.
 
 def route_after_router(state: AgentState) -> str:
     """
