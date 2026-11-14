@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import re
 import time
 from typing import Any, AsyncIterator
 
@@ -86,6 +87,21 @@ def _memory_note(ctx: ChatContext) -> str:
         for c in list(ctx.titles.values())[:12]
     )
     return f"\n\n[contexto interno — títulos mostrados nesta resposta: {refs}]"
+
+
+_INLINE_SUGGESTIONS = re.compile(r"\n*\s*\[\s*sugest(?:ões|oes)\s*:\s*(.+?)\]\s*$", re.IGNORECASE | re.DOTALL)
+
+
+def _extract_inline_suggestions(reply: str, ctx: ChatContext) -> str:
+    """Rede de segurança: se o modelo escrever '[sugestões: "a", "b"]' no texto em vez de
+    chamar suggest_followups, move isso para ctx.suggestions e limpa a resposta."""
+    match = _INLINE_SUGGESTIONS.search(reply)
+    if not match:
+        return reply
+    if not ctx.suggestions:
+        parts = re.findall(r'"([^"]+)"', match.group(1)) or match.group(1).split(",")
+        ctx.suggestions = [p.strip()[:60] for p in parts if p.strip()][:4]
+    return reply[: match.start()].rstrip()
 
 
 def _default_suggestions(ctx: ChatContext) -> list[str]:
@@ -222,7 +238,7 @@ class ChatService:
                 elif kind == "on_custom_event" and ev["name"] in ("titles", "action"):
                     yield ev["name"], ev["data"]
 
-            reply = final_text or "".join(streamed).strip()
+            reply = _extract_inline_suggestions(final_text or "".join(streamed).strip(), ctx)
             if not reply:
                 reply = "Hmm, não consegui formular uma resposta. Pode tentar de outro jeito?"
             if not streamed:
