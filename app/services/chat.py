@@ -89,12 +89,15 @@ def _memory_note(ctx: ChatContext) -> str:
     return f"\n\n[contexto interno — títulos mostrados nesta resposta: {refs}]"
 
 
+_LEAKED_TOOL_CALL = re.compile(r"^[ \t]*`?(?:functions\.)?(?:suggest_followups|refresh_view|show_toast)\b.*$\n?", re.MULTILINE)
 _INLINE_SUGGESTIONS = re.compile(r"\n*\s*\[\s*sugest(?:ões|oes)\s*:\s*(.+?)\]\s*$", re.IGNORECASE | re.DOTALL)
 
 
 def _extract_inline_suggestions(reply: str, ctx: ChatContext) -> str:
     """Rede de segurança: se o modelo escrever '[sugestões: "a", "b"]' no texto em vez de
     chamar suggest_followups, move isso para ctx.suggestions e limpa a resposta."""
+    # o modelo às vezes "escreve" a chamada da tool em vez de chamá-la (ex.: "functions.suggest_followups")
+    reply = _LEAKED_TOOL_CALL.sub("", reply).rstrip()
     match = _INLINE_SUGGESTIONS.search(reply)
     if not match:
         return reply
